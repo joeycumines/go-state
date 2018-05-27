@@ -222,7 +222,7 @@ func (p *program) tick() error {
 	if err != nil {
 		return err
 	}
-	rollback := true
+	rollback := !initialised // only rollback if we didn't just initialise (only if we have anything to roll back)
 	defer func() {
 		if rollback {
 			p.consumer.Rollback()

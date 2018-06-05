@@ -237,10 +237,8 @@ func (p *program) tick() error {
 			}
 		}
 	}
-	if len(messages) != 0 {
-		if err := p.producer.Put(p.ctx, messages...); err != nil {
-			return fmt.Errorf("state.Run producer error: %s", err.Error())
-		}
+	if err := p.producer.Put(p.ctx, messages...); err != nil {
+		return fmt.Errorf("state.Run producer error: %s", err.Error())
 	}
 	if !initialised { // only commit if we didn't just initialise
 		if err := p.consumer.Commit(); err != nil {

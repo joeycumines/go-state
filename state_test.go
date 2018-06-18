@@ -23,6 +23,35 @@ import (
 	"github.com/go-test/deep"
 )
 
+func TestConfig_Apply_panic(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected a panic")
+		}
+		s := fmt.Sprint(r)
+		if s != "state.Config.Apply nil receiver" {
+			t.Fatal("unexpected panic", s)
+		}
+	}()
+	var c *Config
+	c.Apply()
+}
+
+func TestConfig_Apply_nil(t *testing.T) {
+	c := new(Config)
+	err := c.Apply(
+		nil,
+		func(config *Config) error {
+			config.Key = "21"
+			return nil
+		},
+	)
+	if err != nil || c.Key != "21" {
+		t.Fatal(err, c)
+	}
+}
+
 func TestTag_nilChildCommand(t *testing.T) {
 	if Tag(nil, func(interface{}) interface{} { return nil }) != nil {
 		t.Fatal("expected a nil parent command")

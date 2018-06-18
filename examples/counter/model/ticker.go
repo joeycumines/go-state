@@ -94,29 +94,21 @@ func UpdateTicker(
 
 			if model.HorizontalMulti > 0 {
 				for x := 0; x < model.HorizontalMulti; x++ {
-					command = append(command, state.NewCommand(
-						TickerHorizontalCounter(IncrementCounter{}),
-					)...)
+					command = append(command, state.Tag(state.NewCommand(IncrementCounter{}), TickerHorizontalCounter)...)
 				}
 			} else {
 				for x := 0; x < model.HorizontalMulti * -1; x++ {
-					command = append(command, state.NewCommand(
-						TickerHorizontalCounter(DecrementCounter{}),
-					)...)
+					command = append(command, state.Tag(state.NewCommand(DecrementCounter{}), TickerHorizontalCounter)...)
 				}
 			}
 
 			if model.VerticalMulti > 0 {
 				for x := 0; x < model.VerticalMulti; x++ {
-					command = append(command, state.NewCommand(
-						TickerVerticalCounter(IncrementCounter{}),
-					)...)
+					command = append(command, state.Tag(state.NewCommand(IncrementCounter{}), TickerVerticalCounter)...)
 				}
 			} else {
 				for x := 0; x < model.VerticalMulti * -1; x++ {
-					command = append(command, state.NewCommand(
-						TickerVerticalCounter(DecrementCounter{}),
-					)...)
+					command = append(command, state.Tag(state.NewCommand(DecrementCounter{}), TickerVerticalCounter)...)
 				}
 			}
 

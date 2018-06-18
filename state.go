@@ -21,7 +21,6 @@ package state
 
 import (
 	"context"
-	"fmt"
 	"errors"
 )
 
@@ -81,51 +80,114 @@ type (
 		// latest.
 		Rollback() error
 	}
+
+	// Store models a key-value store for aggregated models.
+	Store interface {
+		// Load fetches a value given a key, returning a bool which can indicate if the key existed, or an error.
+		Load(
+			ctx context.Context,
+			key string,
+		) (
+			value []byte,
+			ok bool,
+			err error,
+		)
+
+		// Store saves a value at a key, overwriting any existing value, or returns an error.
+		Store(
+			ctx context.Context,
+			key string,
+			value []byte,
+		) (
+			err error,
+		)
+	}
+
+	// Hydrator is used to initialise a model from a store.
+	Hydrator func(
+		ctx context.Context,
+		key string,
+		value []byte,
+	) (
+		model interface{},
+		readOnlyModels []func() (
+			key string,
+			load func(model interface{}),
+		),
+		err error,
+	)
+
+	// Dehydrator is used to flatten a model for saving back into a store.
+	Dehydrator func(
+		ctx context.Context,
+		key string,
+		model interface{},
+	) (
+		value []byte,
+		err error,
+	)
+
+	// Fetcher is a message fetcher, which may return 0..n messages and a bool indicating if there are any left,
+	// or an error, it is important to note that if there is no error but it returns false with messages, those
+	// messages WILL be sent onwards to the next stage, however they will be the last.
+	// It is used for message batching, where we want to consume until a certain point.
+	Fetcher func(ctx context.Context) ([]interface{}, bool, error)
+
+	// Config is the shared configuration struct for all app modes.
+	Config struct {
+		// Init is the app Init func, required by Run, Batch, Aggregate.
+		Init Init
+
+		// Update is the app Update func, required by Run, Batch, Aggregate.
+		Update Update
+
+		// View is the app View func, required by Run, Batch, Aggregate.
+		View View
+
+		// Producer is where the app will produce to, required by Run, Batch, Aggregate.
+		Producer Producer
+
+		// Consumer is where the app will consume from, required by Run, Batch, Aggregate.
+		Consumer Consumer
+
+		// Replay will disable calling commands, if set, optional.
+		Replay bool
+
+		// Fetcher is the batch consumer input, required by Batch, Aggregate.
+		Fetcher Fetcher
+
+		// Store is the key-value store used to save aggregate models, required by Aggregate.
+		Store Store
+
+		// Hydrator is used to convert keyed binary data to an init model, required by Aggregate.
+		Hydrator Hydrator
+
+		// Dehydrator is used to convert a keyed model to binary data, required by Aggregate.
+		Dehydrator Dehydrator
+
+		// Key is the unique identifier for the model to run, required by Aggregate.
+		Key string
+	}
+
+	// Option is used to modify config in a composeable way.
+	Option func(config *Config) error
 )
 
-// Run is the provided runtime logic to actually create and run a program using the pattern defined in this package.
-// Note that all arguments are required.
-func Run(
-	ctx context.Context,
-	init Init,
-	update Update,
-	view View,
-	producer Producer,
-	consumer Consumer,
-) error {
-	if ctx == nil {
-		return errors.New("state.Run nil ctx")
+// Apply will pass the receiver into all options, returning the first error, or nil, note it will panic if the
+// receiver is nil.
+func (c *Config) Apply(opts ... Option) error {
+	if c == nil {
+		panic(errors.New("state.Config.Apply nil receiver"))
 	}
-	if init == nil {
-		return errors.New("state.Run nil init")
-	}
-	if update == nil {
-		return errors.New("state.Run nil update")
-	}
-	if view == nil {
-		return errors.New("state.Run nil view")
-	}
-	if producer == nil {
-		return errors.New("state.Run nil producer")
-	}
-	if consumer == nil {
-		return errors.New("state.Run nil consumer")
-	}
-
-	p := &program{
-		ctx:      ctx,
-		init:     init,
-		update:   update,
-		view:     view,
-		producer: producer,
-		consumer: consumer,
-	}
-
-	for {
-		if err := p.tick(); err != nil {
+	for _, opt := range opts {
+		if opt == nil {
+			continue
+		}
+		if err := opt(c); err != nil {
 			return err
 		}
 	}
+	return nil
 }
 
 // Tag applies a target func to a command, and is used to propagate the command up the chain, note either parameter
@@ -167,84 +229,10 @@ func NewCommand(
 	return result
 }
 
-// UNEXPORTED
-
 type commandMessage struct {
 	message interface{}
 }
 
 func (c commandMessage) command() interface{} {
 	return c.message
-}
-
-type program struct {
-	ctx         context.Context
-	init        Init
-	update      Update
-	view        View
-	producer    Producer
-	consumer    Consumer
-	initialised bool
-	model       interface{}
-}
-
-func (p *program) nextMessage() (message interface{}, err error) {
-	message, err = p.consumer.Get(p.ctx)
-	if err != nil {
-		message, err = nil, fmt.Errorf("state.Run consumer error: %s", err.Error())
-	}
-	return
-}
-
-func (p *program) updateModel() (command []func() (message interface{}), err error) {
-	if !p.initialised {
-		p.model, command = p.init()
-		p.initialised = true
-	} else {
-		var message interface{}
-		message, err = p.nextMessage()
-		if err == nil && message != nil {
-			transform := p.update(message)
-			if transform != nil {
-				p.model, command = transform(p.model)
-			}
-		}
-	}
-	return
-}
-
-func (p *program) tick() error {
-	if err := p.ctx.Err(); err != nil {
-		return fmt.Errorf("state.Run context error: %s", err.Error())
-	}
-	initialised := !p.initialised // are we initialising it this loop?
-	command, err := p.updateModel()
-	if err != nil {
-		return err
-	}
-	rollback := !initialised // only rollback if we didn't just initialise (only if we have anything to roll back)
-	defer func() {
-		if rollback {
-			p.consumer.Rollback()
-		}
-	}()
-	p.view(p.model)
-	var messages []interface{}
-	for _, cmd := range command {
-		if cmd != nil {
-			if message := cmd(); message != nil {
-				messages = append(messages, message)
-			}
-		}
-	}
-	if err := p.producer.Put(p.ctx, messages...); err != nil {
-		return fmt.Errorf("state.Run producer error: %s", err.Error())
-	}
-	if !initialised { // only commit if we didn't just initialise
-		if err := p.consumer.Commit(); err != nil {
-			return fmt.Errorf("state.Run commit error: %s", err.Error())
-		}
-	}
-	rollback = false
-	return nil
 }

@@ -1,5 +1,7 @@
 # go-state
 
+> coverage: 96.5%
+
 My event based elm-like app state architecture designed to make stateful event driven 
 logic more maintainable.
 

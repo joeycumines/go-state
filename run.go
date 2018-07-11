@@ -116,16 +116,16 @@ func (p *program) tick() error {
 		return fmt.Errorf("state.Run context error: %s", err.Error())
 	}
 	didInit := !p.initialised
-	command, err := p.updateModel()
-	if err != nil {
-		return err
-	}
 	canRollback := !didInit
 	defer func() {
 		if canRollback {
 			p.consumer.Rollback()
 		}
 	}()
+	command, err := p.updateModel()
+	if err != nil {
+		return err
+	}
 	p.view(p.model)
 	var messages []interface{}
 	if !p.replay {

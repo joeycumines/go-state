@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"errors"
 	"github.com/go-test/deep"
+	"github.com/joeycumines/go-bigbuff"
 )
 
 type mockProducer struct {
@@ -344,6 +345,8 @@ func TestRun_commitErrorDataFlow(t *testing.T) {
 }
 
 func TestRun_getError(t *testing.T) {
+	out := make(chan int, 50)
+
 	err := Run(
 		context.Background(),
 		func() (model interface{}, command []func() (message interface{})) {
@@ -363,11 +366,24 @@ func TestRun_getError(t *testing.T) {
 			get: func(ctx context.Context) (interface{}, error) {
 				return nil, errors.New("some_error")
 			},
+			rollback: func() error {
+				out <- 1
+				return nil
+			},
 		},
 	)
 
 	if err == nil || err.Error() != "state.Run consumer error: some_error" {
 		t.Fatal("unexpected error", err)
+	}
+
+	select {
+	case o := <-out:
+		if o != 1 {
+			t.Fatal("unexpected out", o)
+		}
+	default:
+		t.Fatal("expected rollback to have been called")
 	}
 }
 
@@ -393,4 +409,48 @@ func TestRun_putError(t *testing.T) {
 	if err == nil || err.Error() != "state.Run producer error: some_error" {
 		t.Fatal("unexpected error", err)
 	}
+}
+
+// TestRun_panicInUpdate is a regression test of a bug caused by a misplaced defer, that meant if the update
+// panicked the rollback would not be called, which breaks the guarantees stated (made obvious by the fact it broke
+// my own implementation using bigbuff.Buffer, which relies on rollbacks.
+func TestRun_panicInUpdate(t *testing.T) {
+	defer func() {
+		r := recover()
+		if r == nil || fmt.Sprint(r) != "some_panic" {
+			t.Fatal("unexpected panic", r)
+		}
+	}()
+
+	buffer := new(bigbuff.Buffer)
+
+	defer buffer.Close()
+
+	if err := buffer.Put(nil, 2); err != nil {
+		t.Fatal(err)
+	}
+
+	consumer, err := buffer.NewConsumer()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer consumer.Close()
+
+	Run(
+		context.Background(),
+		func() (model interface{}, command []func() (message interface{})) {
+			return 1, nil
+		},
+		func(message interface{}) func(currentModel interface{}) (updatedModel interface{}, command []func() (message interface{})) {
+			panic("some_panic")
+		},
+		func(model interface{}) {
+		},
+		buffer,
+		consumer,
+	)
+
+	t.Fatal("should not reach here")
 }

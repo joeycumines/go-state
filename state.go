@@ -12,7 +12,7 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
- */
+*/
 
 // Package state provides an elm-like implementation of an event based framework, that utilises models, views, and
 // pure-function updates, to provide a testable, extensible, but simple to work with pattern, to develop reactive
@@ -40,12 +40,8 @@ type (
 	// Update models a function that defines how a model can be updated, the first phase delegating a given message
 	// to the correct update logic, then the second phase actually performing the update, returning an updated model
 	// and any command generated as a result of the update.
-	Update func(
-		message interface{},
-	) (
-		func(
-			currentModel interface{},
-		) (
+	Update func(message interface{}) (
+		func(currentModel interface{}) (
 			updatedModel interface{},
 			command []func() (message interface{}),
 		),
@@ -63,7 +59,7 @@ type (
 	Producer interface {
 		// Put will send the provided values in-order to the message buffer, or return an error.
 		// It MUST NOT block in such a way that it will be possible to cause a deadlock locally.
-		Put(ctx context.Context, values ... interface{}) error
+		Put(ctx context.Context, values ...interface{}) error
 	}
 
 	// Consumer models how messages are received by the program.
@@ -110,10 +106,7 @@ type (
 		value []byte,
 	) (
 		model interface{},
-		readOnlyModels []func() (
-			key string,
-			load func(model interface{}),
-		),
+		readOnlyModels []func() (key string, load func(model interface{})),
 		err error,
 	)
 
@@ -175,7 +168,7 @@ type (
 
 // Apply will pass the receiver into all options, returning the first error, or nil, note it will panic if the
 // receiver is nil.
-func (c *Config) Apply(opts ... Option) error {
+func (c *Config) Apply(opts ...Option) error {
 	if c == nil {
 		panic(errors.New("state.Config.Apply nil receiver"))
 	}
@@ -218,7 +211,7 @@ func Tag(
 
 // NewCommand converts 0..n messages to a command.
 func NewCommand(
-	messages ... interface{},
+	messages ...interface{},
 ) (
 	command []func() (message interface{}),
 ) {

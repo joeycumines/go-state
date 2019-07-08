@@ -12,19 +12,19 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
- */
+*/
 
 package state
 
 import (
-	"testing"
 	"context"
-	"github.com/joeycumines/go-bigbuff"
-	"time"
-	"github.com/go-test/deep"
 	"encoding/json"
-	"sync"
+	"github.com/go-test/deep"
+	"github.com/joeycumines/go-bigbuff"
 	"strings"
+	"sync"
+	"testing"
+	"time"
 )
 
 func TestAggregate_nilCtx(t *testing.T) {
@@ -455,7 +455,7 @@ func TestLoadModels(t *testing.T) {
 			C   string
 			Cow *mC
 		}
-	 */
+	*/
 	m.Store(
 		`C/1`,
 		[]byte(`

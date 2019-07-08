@@ -12,7 +12,7 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
- */
+*/
 
 package state
 
@@ -53,7 +53,7 @@ func Batch(
 
 func BatchWithOptions(
 	ctx context.Context,
-	opts ... Option,
+	opts ...Option,
 ) error {
 	if ctx == nil {
 		return errors.New("state.Batch nil ctx")

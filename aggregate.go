@@ -12,26 +12,25 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
- */
+*/
 
 package state
 
 import (
-	"fmt"
 	"context"
 	"errors"
+	"fmt"
 )
 
-// Aggregate implements a pattern to load from and save to a key-value store (string key, binary data, binary key
-// could be easily supported via base64 encoding), which takes advantages of the run-to-end behavior of Batch.
-// It's intended use case is server-less computing scenarios, and it is particularly targeted towards complicated
-// aggregate state. To this end the Hydrator type provides it's "readOnlyModels" return value, which can be used
-// to load OTHER models for use within 1+ model(s) (which likely lacks guarantees that would generally be present,
-// e.g. ordering), so that very large or dynamic state, or state in multiple data stores, can be supported (note that
-// the hydrator will be used for all models). The implementation supports circular references - multiple attempts to
-// load the same key will simply return it's previously hydrated model.
-// The parameter key's value will ONLY be updated on successful completion of the batch, and ONLY if the last model is
-// non-nil.
+// Aggregate implements a pattern to load from and save to a key-value store (string key, with []byte data), which
+// takes advantage of the run-to-end behavior of Batch. It's intended use case is server-less computing scenarios, and
+// it is particularly targeted towards complicated aggregate state. To this end the Hydrator type provides it's
+// "readOnlyModels" return value, which can be used to load OTHER models (handlers for which must be defined ahead of
+// time) for use within 1+ model(s). Loading of external models in this manner lacks guarantees that would generally be
+// present, e.g. ordering. This capability facilitates support of very large or dynamic state, or state in multiple data
+// stores. The implementation also supports circular references - multiple attempts to load the same key will simply
+// return the previously hydrated model. The parameter key's value will ONLY be updated on successful completion of the
+// batch, and ONLY if the last model is non-nil. Note that the hydrator will be used for ALL models.
 func Aggregate(
 	ctx context.Context,
 	init Init,
@@ -64,7 +63,7 @@ func Aggregate(
 
 func AggregateWithOptions(
 	ctx context.Context,
-	opts ... Option,
+	opts ...Option,
 ) error {
 	if ctx == nil {
 		return errors.New("state.Aggregate nil ctx")

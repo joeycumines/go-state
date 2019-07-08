@@ -12,7 +12,7 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
- */
+*/
 
 package model
 
@@ -97,7 +97,7 @@ func UpdateTicker(
 					command = append(command, state.Tag(state.NewCommand(IncrementCounter{}), TickerHorizontalCounter)...)
 				}
 			} else {
-				for x := 0; x < model.HorizontalMulti * -1; x++ {
+				for x := 0; x < model.HorizontalMulti*-1; x++ {
 					command = append(command, state.Tag(state.NewCommand(DecrementCounter{}), TickerHorizontalCounter)...)
 				}
 			}
@@ -107,7 +107,7 @@ func UpdateTicker(
 					command = append(command, state.Tag(state.NewCommand(IncrementCounter{}), TickerVerticalCounter)...)
 				}
 			} else {
-				for x := 0; x < model.VerticalMulti * -1; x++ {
+				for x := 0; x < model.VerticalMulti*-1; x++ {
 					command = append(command, state.Tag(state.NewCommand(DecrementCounter{}), TickerVerticalCounter)...)
 				}
 			}

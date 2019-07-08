@@ -12,14 +12,14 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
- */
+*/
 
 package state
 
 import (
 	"context"
-	"fmt"
 	"errors"
+	"fmt"
 )
 
 // Run is the provided runtime logic to actually create and run a program using the pattern defined in this package.
@@ -45,7 +45,7 @@ func Run(
 
 func RunWithOptions(
 	ctx context.Context,
-	opts ... Option,
+	opts ...Option,
 ) error {
 	if ctx == nil {
 		return errors.New("state.Run nil ctx")

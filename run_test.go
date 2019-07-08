@@ -12,24 +12,24 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
- */
+*/
 
 package state
 
 import (
-	"testing"
 	"context"
-	"fmt"
 	"errors"
+	"fmt"
 	"github.com/go-test/deep"
 	"github.com/joeycumines/go-bigbuff"
+	"testing"
 )
 
 type mockProducer struct {
-	put func(ctx context.Context, values ... interface{}) error
+	put func(ctx context.Context, values ...interface{}) error
 }
 
-func (m mockProducer) Put(ctx context.Context, values ... interface{}) error {
+func (m mockProducer) Put(ctx context.Context, values ...interface{}) error {
 	if m.put != nil {
 		return m.put(ctx, values...)
 	}

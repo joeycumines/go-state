@@ -12,18 +12,18 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
- */
+*/
 
 package state
 
 import (
-	"testing"
 	"context"
-	"time"
 	"errors"
-	"github.com/go-test/deep"
 	"fmt"
+	"github.com/go-test/deep"
 	"github.com/joeycumines/go-bigbuff"
+	"testing"
+	"time"
 )
 
 func TestBatch_nilCtx(t *testing.T) {
@@ -855,7 +855,7 @@ func exampleUpdateTicker(
 					command = append(command, Tag(NewCommand(exampleIncrementCounter{}), exampleTargetTickerHorizontalCounter)...)
 				}
 			} else {
-				for x := 0; x < model.HorizontalMulti * -1; x++ {
+				for x := 0; x < model.HorizontalMulti*-1; x++ {
 					command = append(command, Tag(NewCommand(exampleDecrementCounter{}), exampleTargetTickerHorizontalCounter)...)
 				}
 			}
@@ -865,7 +865,7 @@ func exampleUpdateTicker(
 					command = append(command, Tag(NewCommand(exampleIncrementCounter{}), exampleTargetTickerVerticalCounter)...)
 				}
 			} else {
-				for x := 0; x < model.VerticalMulti * -1; x++ {
+				for x := 0; x < model.VerticalMulti*-1; x++ {
 					command = append(command, Tag(NewCommand(exampleDecrementCounter{}), exampleTargetTickerVerticalCounter)...)
 				}
 			}

@@ -12,18 +12,18 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
- */
+*/
 
 package state
 
 import (
-	"testing"
-	"fmt"
 	"context"
-	"sync"
 	"errors"
+	"fmt"
 	"github.com/go-test/deep"
 	"reflect"
+	"sync"
+	"testing"
 )
 
 func TestAggregateValidator(t *testing.T) {

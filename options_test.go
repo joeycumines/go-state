@@ -83,7 +83,7 @@ func TestAggregateValidator(t *testing.T) {
 				Hydrator:   hydrator,
 				Dehydrator: dehydrator,
 				Key:        key,
-				Replay:     false,
+				Replay:     func() bool { return false },
 			},
 		},
 		{
@@ -99,7 +99,7 @@ func TestAggregateValidator(t *testing.T) {
 				nil,
 				key,
 			),
-			Error: errors.New("nil dehydrator"),
+			Error: errors.New("state.AggregateValidator nil dehydrator"),
 		},
 		{
 			Options: AggregateOptions(
@@ -114,7 +114,7 @@ func TestAggregateValidator(t *testing.T) {
 				dehydrator,
 				key,
 			),
-			Error: errors.New("nil hydrator"),
+			Error: errors.New("state.AggregateValidator nil hydrator"),
 		},
 		{
 			Options: AggregateOptions(
@@ -129,7 +129,7 @@ func TestAggregateValidator(t *testing.T) {
 				dehydrator,
 				key,
 			),
-			Error: errors.New("nil store"),
+			Error: errors.New("state.AggregateValidator nil store"),
 		},
 		{
 			Options: AggregateOptions(
@@ -144,7 +144,7 @@ func TestAggregateValidator(t *testing.T) {
 				dehydrator,
 				key,
 			),
-			Error: errors.New("nil fetcher"),
+			Error: errors.New("state.BatchValidator nil fetcher"),
 		},
 		{
 			Options: AggregateOptions(
@@ -159,7 +159,7 @@ func TestAggregateValidator(t *testing.T) {
 				dehydrator,
 				key,
 			),
-			Error: errors.New("nil consumer"),
+			Error: errors.New("state.RunValidator nil consumer"),
 		},
 		{
 			Options: AggregateOptions(
@@ -174,7 +174,7 @@ func TestAggregateValidator(t *testing.T) {
 				dehydrator,
 				key,
 			),
-			Error: errors.New("nil producer"),
+			Error: errors.New("state.RunValidator nil producer"),
 		},
 		{
 			Options: AggregateOptions(
@@ -189,7 +189,7 @@ func TestAggregateValidator(t *testing.T) {
 				dehydrator,
 				key,
 			),
-			Error: errors.New("nil view"),
+			Error: errors.New("state.RunValidator nil view"),
 		},
 		{
 			Options: AggregateOptions(
@@ -204,7 +204,7 @@ func TestAggregateValidator(t *testing.T) {
 				dehydrator,
 				key,
 			),
-			Error: errors.New("nil update"),
+			Error: errors.New("state.RunValidator nil update"),
 		},
 		{
 			Options: AggregateOptions(
@@ -219,7 +219,7 @@ func TestAggregateValidator(t *testing.T) {
 				dehydrator,
 				key,
 			),
-			Error: errors.New("nil init"),
+			Error: errors.New("state.RunValidator nil init"),
 		},
 	}
 
@@ -284,7 +284,7 @@ func TestOptionConfig(t *testing.T) {
 		Hydrator:   hydrator,
 		Dehydrator: dehydrator,
 		Key:        key,
-		Replay:     true,
+		Replay:     func() bool { return true },
 	}
 
 	testCases := [][]Option{
@@ -304,10 +304,10 @@ func TestOptionConfig(t *testing.T) {
 				dehydrator,
 				key,
 			),
-			OptionReplay(true),
+			OptionReplay(func() bool { return true }),
 		),
 		append(
-			[]Option{OptionReplay(true)},
+			[]Option{OptionReplay(func() bool { return true })},
 			AggregateOptions(
 				init,
 				update,

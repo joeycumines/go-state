@@ -62,7 +62,7 @@ func OptionConsumer(consumer Consumer) Option {
 	}
 }
 
-func OptionReplay(replay bool) Option {
+func OptionReplay(replay func() bool) Option {
 	return func(config *Config) error {
 		config.Replay = replay
 		return nil
@@ -106,19 +106,19 @@ func OptionKey(key string) Option {
 
 func RunValidator(config *Config) error {
 	if config.Init == nil {
-		return errors.New("nil init")
+		return errors.New("state.RunValidator nil init")
 	}
 	if config.Update == nil {
-		return errors.New("nil update")
+		return errors.New("state.RunValidator nil update")
 	}
 	if config.View == nil {
-		return errors.New("nil view")
+		return errors.New("state.RunValidator nil view")
 	}
 	if config.Producer == nil {
-		return errors.New("nil producer")
+		return errors.New("state.RunValidator nil producer")
 	}
 	if config.Consumer == nil {
-		return errors.New("nil consumer")
+		return errors.New("state.RunValidator nil consumer")
 	}
 	return nil
 }
@@ -144,7 +144,7 @@ func BatchValidator(config *Config) error {
 		return err
 	}
 	if config.Fetcher == nil {
-		return errors.New("nil fetcher")
+		return errors.New("state.BatchValidator nil fetcher")
 	}
 	return nil
 }
@@ -174,13 +174,13 @@ func AggregateValidator(config *Config) error {
 		return err
 	}
 	if config.Store == nil {
-		return errors.New("nil store")
+		return errors.New("state.AggregateValidator nil store")
 	}
 	if config.Hydrator == nil {
-		return errors.New("nil hydrator")
+		return errors.New("state.AggregateValidator nil hydrator")
 	}
 	if config.Dehydrator == nil {
-		return errors.New("nil dehydrator")
+		return errors.New("state.AggregateValidator nil dehydrator")
 	}
 	return nil
 }

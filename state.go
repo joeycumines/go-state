@@ -143,8 +143,8 @@ type (
 		// Consumer is where the app will consume from, required by Run, Batch, Aggregate.
 		Consumer Consumer
 
-		// Replay will disable calling commands, if set, optional.
-		Replay bool
+		// Replay will disable calling commands while it returns true (optional, nil disables replay as well)
+		Replay func() bool
 
 		// Fetcher is the batch consumer input, required by Batch, Aggregate.
 		Fetcher Fetcher

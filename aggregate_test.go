@@ -19,6 +19,7 @@ package state
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/go-test/deep"
 	"github.com/joeycumines/go-bigbuff"
 	"strings"
@@ -66,7 +67,7 @@ func TestAggregate_nilUpdate(t *testing.T) {
 		nil,
 		"",
 	)
-	if err == nil || err.Error() != "state.Aggregate config error: nil update" {
+	if err == nil || err.Error() != "state.RunValidator nil update" {
 		t.Fatal("unexpected err", err)
 	}
 }
@@ -91,7 +92,7 @@ func TestAggregate_nilFetcher(t *testing.T) {
 		nil,
 		"",
 	)
-	if err == nil || err.Error() != "state.Aggregate config error: nil fetcher" {
+	if err == nil || err.Error() != "state.BatchValidator nil fetcher" {
 		t.Fatal("unexpected err", err)
 	}
 }
@@ -118,7 +119,7 @@ func TestAggregate_nilStore(t *testing.T) {
 		nil,
 		"",
 	)
-	if err == nil || err.Error() != "state.Aggregate config error: nil store" {
+	if err == nil || err.Error() != "state.AggregateValidator nil store" {
 		t.Fatal("unexpected err", err)
 	}
 }
@@ -581,5 +582,83 @@ func TestLoadModels(t *testing.T) {
 		},
 	}); diff != nil {
 		t.Fatal("expected diff", diff)
+	}
+}
+
+func newFetcher(batches ...[]interface{}) Fetcher {
+	var mutex sync.Mutex
+	return func(ctx context.Context) ([]interface{}, bool, error) {
+		mutex.Lock()
+		defer mutex.Unlock()
+		if len(batches) == 0 {
+			return nil, false, nil
+		}
+		batch := batches[0]
+		batches = batches[1:]
+		return batch, len(batches) != 0, nil
+	}
+}
+
+type loadErrorStore struct {
+	err error
+}
+
+func (l loadErrorStore) Load(ctx context.Context, key string) ([]byte, bool, error) {
+	return nil, false, l.err
+}
+
+func (l loadErrorStore) Store(
+	ctx context.Context,
+	key string,
+	value []byte,
+) (
+	err error,
+) {
+	panic("implement me")
+}
+
+func TestAggregate_loadError(t *testing.T) {
+	var (
+		buffer   bigbuff.Buffer
+		consumer = func() bigbuff.Consumer {
+			v, err := buffer.NewConsumer()
+			if err != nil {
+				t.Fatal(err)
+			}
+			return v
+		}()
+		expected = errors.New(`some_error`)
+		actual   = Aggregate(
+			context.Background(),
+			func() (model interface{}, command []func() (message interface{})) {
+				panic(`shouldn't call'`)
+			},
+			func(message interface{}) (i func(currentModel interface{}) (updatedModel interface{}, command []func() (message interface{}))) {
+				panic(`shouldn't call'`)
+			},
+			func(model interface{}) {
+				panic(`shouldn't call'`)
+			},
+			&buffer,
+			consumer,
+			newFetcher(),
+			loadErrorStore{err: expected},
+			func(ctx context.Context, key string, value []byte) (interface{}, []func() (key string, load func(model interface{})), error) {
+				panic(`shouldn't call'`)
+			},
+			func(ctx context.Context, key string, model interface{}) (value []byte, err error) {
+				panic(`shouldn't call'`)
+			},
+			`some/key`,
+		)
+	)
+	if err := consumer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := buffer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if expected != actual {
+		t.Fatal(actual)
 	}
 }

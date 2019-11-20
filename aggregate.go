@@ -19,7 +19,6 @@ package state
 import (
 	"context"
 	"errors"
-	"fmt"
 )
 
 // Aggregate implements a pattern to load from and save to a key-value store (string key, with []byte data), which
@@ -30,7 +29,7 @@ import (
 // present, e.g. ordering. This capability facilitates support of very large or dynamic state, or state in multiple data
 // stores. The implementation also supports circular references - multiple attempts to load the same key will simply
 // return the previously hydrated model. The parameter key's value will ONLY be updated on successful completion of the
-// batch, and ONLY if the last model is non-nil. Note that the hydrator will be used for ALL models.
+// batch. Note that the hydrator will be used for ALL models.
 func Aggregate(
 	ctx context.Context,
 	init Init,
@@ -72,12 +71,12 @@ func AggregateWithOptions(
 	var config Config
 
 	if err := config.Apply(append(append(make([]Option, 0, len(opts)+1), opts...), AggregateValidator)...); err != nil {
-		return fmt.Errorf("state.Aggregate config error: %s", err.Error())
+		return err
 	}
 
 	// hydrate the model, overriding the init function if the key exists
 	if model, err := loadModel(ctx, config.Store, config.Hydrator, config.Key); err != nil {
-		return fmt.Errorf(`state.Aggregate load error for key "%s": %s`, config.Key, err.Error())
+		return err
 	} else if model != nil {
 		config.Init = func() (interface{}, []func() (message interface{})) {
 			return model, nil
@@ -96,19 +95,14 @@ func AggregateWithOptions(
 
 	// run the batch
 	if err := BatchWithOptions(ctx, OptionConfig(config)); err != nil {
-		return fmt.Errorf(`state.Aggregate batch error for key "%s": %s`, config.Key, err.Error())
-	}
-
-	// if there was no model, then there is nothing to save (still a success case)
-	if lastModel == nil {
-		return nil
+		return err
 	}
 
 	// dehydrate the last model, then store the new value on the key
 	if value, err := config.Dehydrator(ctx, config.Key, lastModel); err != nil {
-		return fmt.Errorf(`state.Aggregate dehydrator error for key "%s": %s`, config.Key, err.Error())
+		return err
 	} else if err := config.Store.Store(ctx, config.Key, value); err != nil {
-		return fmt.Errorf(`state.Aggregate store error for key "%s": %s`, config.Key, err.Error())
+		return err
 	}
 
 	return nil
@@ -129,41 +123,32 @@ func loadModel(ctx context.Context, store Store, hydrator Hydrator, key string) 
 
 func loadModels(ctx context.Context, store Store, hydrator Hydrator, key string, models map[string]interface{}) error {
 	if value, ok, err := store.Load(ctx, key); err != nil {
-		return fmt.Errorf(`failed to load key "%s" with error: %s`, key, err.Error())
+		return err
 	} else if !ok {
 		// nil is used to represent a key without a (current) model
 		models[key] = nil
-
 		return nil
 	} else if model, readOnlyModels, err := hydrator(ctx, key, value); err != nil {
-		return fmt.Errorf(`failed to hydrate key "%s" with error: %s`, key, err.Error())
+		return err
 	} else {
 		models[key] = model
-
 		for _, readOnlyModel := range readOnlyModels {
 			if readOnlyModel == nil {
 				continue
 			}
-
 			key, load := readOnlyModel()
-
 			if load == nil {
 				continue
 			}
-
 			if model, ok := models[key]; ok {
 				load(model)
-
 				continue
 			}
-
 			if err := loadModels(ctx, store, hydrator, key, models); err != nil {
 				return err
 			}
-
 			load(models[key])
 		}
-
 		return nil
 	}
 }

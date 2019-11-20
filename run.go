@@ -19,7 +19,6 @@ package state
 import (
 	"context"
 	"errors"
-	"fmt"
 )
 
 // Run is the provided runtime logic to actually create and run a program using the pattern defined in this package.
@@ -54,7 +53,7 @@ func RunWithOptions(
 	var config Config
 
 	if err := config.Apply(append(append(make([]Option, 0, len(opts)+1), opts...), RunValidator)...); err != nil {
-		return fmt.Errorf("state.Run config error: %s", err.Error())
+		return err
 	}
 
 	p := &program{
@@ -81,18 +80,12 @@ type program struct {
 	view        View
 	producer    Producer
 	consumer    Consumer
+	replay      func() bool
 	initialised bool
-	replay      bool
 	model       interface{}
 }
 
-func (p *program) nextMessage() (message interface{}, err error) {
-	message, err = p.consumer.Get(p.ctx)
-	if err != nil {
-		message, err = nil, fmt.Errorf("state.Run consumer error: %s", err.Error())
-	}
-	return
-}
+func (p *program) nextMessage() (interface{}, error) { return p.consumer.Get(p.ctx) }
 
 func (p *program) updateModel() (command []func() (message interface{}), err error) {
 	if !p.initialised {
@@ -113,13 +106,13 @@ func (p *program) updateModel() (command []func() (message interface{}), err err
 
 func (p *program) tick() error {
 	if err := p.ctx.Err(); err != nil {
-		return fmt.Errorf("state.Run context error: %s", err.Error())
+		return err
 	}
 	didInit := !p.initialised
 	canRollback := !didInit
 	defer func() {
 		if canRollback {
-			p.consumer.Rollback()
+			_ = p.consumer.Rollback()
 		}
 	}()
 	command, err := p.updateModel()
@@ -128,7 +121,7 @@ func (p *program) tick() error {
 	}
 	p.view(p.model)
 	var messages []interface{}
-	if !p.replay {
+	if p.replay == nil || !p.replay() {
 		for _, cmd := range command {
 			if cmd != nil {
 				if message := cmd(); message != nil {
@@ -138,11 +131,11 @@ func (p *program) tick() error {
 		}
 	}
 	if err := p.producer.Put(p.ctx, messages...); err != nil {
-		return fmt.Errorf("state.Run producer error: %s", err.Error())
+		return err
 	}
 	if !didInit {
 		if err := p.consumer.Commit(); err != nil {
-			return fmt.Errorf("state.Run commit error: %s", err.Error())
+			return err
 		}
 	}
 	canRollback = false

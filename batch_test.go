@@ -19,7 +19,6 @@ package state
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/go-test/deep"
 	"github.com/joeycumines/go-bigbuff"
 	"testing"
@@ -57,7 +56,7 @@ func TestBatch_nilUpdate(t *testing.T) {
 			panic("not implemented")
 		},
 	)
-	if err == nil || err.Error() != "state.Batch config error: nil update" {
+	if err == nil || err.Error() != "state.RunValidator nil update" {
 		t.Fatal("unexpected err", err)
 	}
 }
@@ -78,48 +77,13 @@ func TestBatch_nilFetcher(t *testing.T) {
 		mockConsumer{},
 		nil,
 	)
-	if err == nil || err.Error() != "state.Batch config error: nil fetcher" {
-		t.Fatal("unexpected err", err)
-	}
-}
-
-func TestBatch_fetcherPanic(t *testing.T) {
-	err := Batch(
-		context.Background(),
-		func() (model interface{}, command []func() (message interface{})) {
-			return
-		},
-		func(message interface{}) func(currentModel interface{}) (updatedModel interface{}, command []func() (message interface{})) {
-			return nil
-		},
-		func(model interface{}) {
-		},
-		mockProducer{
-			put: func(ctx context.Context, values ...interface{}) error {
-				return nil
-			},
-		},
-		mockConsumer{
-			get: func(ctx context.Context) (interface{}, error) {
-				return nil, nil
-			},
-			commit: func() error {
-				return nil
-			},
-			rollback: func() error {
-				return nil
-			},
-		},
-		func(ctx context.Context) ([]interface{}, bool, error) {
-			panic("some_panic")
-		},
-	)
-	if err == nil || err.Error() != "state.Batch run error: state.Run context error: context canceled | state.Batch worker error: recovered from panic (string): some_panic" {
+	if err == nil || err.Error() != "state.BatchValidator nil fetcher" {
 		t.Fatal("unexpected err", err)
 	}
 }
 
 func TestBatch_runError(t *testing.T) {
+	expected := errors.New("some_error")
 	err := Batch(
 		context.Background(),
 		func() (model interface{}, command []func() (message interface{})) {
@@ -141,7 +105,7 @@ func TestBatch_runError(t *testing.T) {
 			},
 			commit: func() error {
 				time.Sleep(time.Millisecond * 100)
-				return errors.New("some_error")
+				return expected
 			},
 			rollback: func() error {
 				return nil
@@ -152,12 +116,13 @@ func TestBatch_runError(t *testing.T) {
 			return nil, false, nil
 		},
 	)
-	if err == nil || err.Error() != "state.Batch run error: state.Run commit error: some_error" {
+	if err != expected {
 		t.Fatal("unexpected err", err)
 	}
 }
 
 func TestBatch_runErrorCancelsBatch(t *testing.T) {
+	expected := errors.New("some_error")
 	err := Batch(
 		context.Background(),
 		func() (model interface{}, command []func() (message interface{})) {
@@ -176,7 +141,7 @@ func TestBatch_runErrorCancelsBatch(t *testing.T) {
 		mockConsumer{
 			get: func(ctx context.Context) (interface{}, error) {
 				time.Sleep(time.Millisecond * 100)
-				return nil, errors.New("some_error")
+				return nil, expected
 			},
 			commit: func() error {
 				return nil
@@ -190,13 +155,15 @@ func TestBatch_runErrorCancelsBatch(t *testing.T) {
 			return nil, true, nil
 		},
 	)
-	if err == nil || err.Error() != "state.Batch run error: state.Run consumer error: some_error | state.Batch worker error: context error: context canceled" {
+	if err != expected {
 		t.Fatal("unexpected err", err)
 	}
 }
 
 func TestBatch_batchErrorCancelsRun(t *testing.T) {
 	var x int
+
+	expected := errors.New("some_error")
 
 	err := Batch(
 		context.Background(),
@@ -228,19 +195,21 @@ func TestBatch_batchErrorCancelsRun(t *testing.T) {
 		func(ctx context.Context) ([]interface{}, bool, error) {
 			x++
 			if x > 10 {
-				return nil, true, errors.New("some_error")
+				return nil, true, expected
 			}
 			time.Sleep(time.Millisecond * 10)
 			return nil, true, nil
 		},
 	)
-	if err == nil || err.Error() != "state.Batch run error: state.Run context error: context canceled | state.Batch worker error: fetcher error: some_error" {
+	if err != expected {
 		t.Fatal("unexpected err", err)
 	}
 }
 
 func TestBatch_batchErrorCausedByPut(t *testing.T) {
 	var x int
+
+	expected := errors.New("fatal_error")
 
 	err := Batch(
 		context.Background(),
@@ -255,7 +224,7 @@ func TestBatch_batchErrorCausedByPut(t *testing.T) {
 		mockProducer{
 			put: func(ctx context.Context, values ...interface{}) error {
 				if len(values) == 1 && values[0] == "causes fatal error" {
-					return errors.New("fatal_error")
+					return expected
 				}
 				return nil
 			},
@@ -284,13 +253,15 @@ func TestBatch_batchErrorCausedByPut(t *testing.T) {
 			return []interface{}{1, 2}, true, nil
 		},
 	)
-	if err == nil || err.Error() != "state.Batch run error: state.Run context error: context canceled | state.Batch worker error: producer error: fatal_error" {
+	if err != expected {
 		t.Fatal("unexpected err", err)
 	}
 }
 
 func TestBatch_batchEndError(t *testing.T) {
 	var msgs []interface{}
+
+	expected := errors.New("some_error")
 
 	err := Batch(
 		context.Background(),
@@ -306,7 +277,7 @@ func TestBatch_batchEndError(t *testing.T) {
 			put: func(ctx context.Context, values ...interface{}) error {
 				if len(values) == 1 {
 					if _, ok := values[0].(batchEnd); ok {
-						return errors.New("some_error")
+						return expected
 					}
 				}
 				msgs = append(msgs, values...)
@@ -330,7 +301,7 @@ func TestBatch_batchEndError(t *testing.T) {
 		},
 	)
 
-	if err == nil || err.Error() != "state.Batch run error: state.Run context error: context canceled | state.Batch worker error: end error: some_error" {
+	if err != expected {
 		t.Fatal("unexpected err", err)
 	}
 
@@ -339,24 +310,8 @@ func TestBatch_batchEndError(t *testing.T) {
 	}
 }
 
-func TestBatchConsumer_Get_stopped(t *testing.T) {
-	defer func() {
-		r := recover()
-		if r == nil {
-			t.Fatal("expected a panic")
-		}
-		s := fmt.Sprint(r)
-		if s != "state.batchConsumer.Get stopped consuming" {
-			t.Fatal("unexpected panic", s)
-		}
-	}()
-	c := batchConsumer{
-		stopped: true,
-	}
-	c.Get(nil)
-}
-
 func TestBatchConsumer_Get_commitError(t *testing.T) {
+	expected := errors.New("some_error")
 	expectedCtx := context.WithValue(context.Background(), 1, 2)
 	rollback := make(chan struct{}, 1)
 	c := batchConsumer{
@@ -368,7 +323,7 @@ func TestBatchConsumer_Get_commitError(t *testing.T) {
 				return batchEnd{}, nil
 			},
 			commit: func() error {
-				return errors.New("some_error")
+				return expected
 			},
 			rollback: func() error {
 				rollback <- struct{}{}
@@ -380,7 +335,7 @@ func TestBatchConsumer_Get_commitError(t *testing.T) {
 	if v != nil {
 		t.Error("unexpected v", v)
 	}
-	if err == nil || err.Error() != "state.batchConsumer.Get end commit error: some_error" {
+	if err != expected {
 		t.Error("unexpected err", err)
 	}
 	<-rollback
@@ -388,6 +343,7 @@ func TestBatchConsumer_Get_commitError(t *testing.T) {
 
 func TestBatchConsumer_Get_putError(t *testing.T) {
 	expectedCtx := context.WithValue(context.Background(), 1, 2)
+	expected := errors.New("some_error")
 	c := batchConsumer{
 		Consumer: mockConsumer{
 			get: func(ctx context.Context) (interface{}, error) {
@@ -400,7 +356,7 @@ func TestBatchConsumer_Get_putError(t *testing.T) {
 				return nil
 			},
 		},
-		producer: mockProducer{
+		Producer: mockProducer{
 			put: func(ctx context.Context, values ...interface{}) error {
 				if ctx != expectedCtx {
 					t.Error("unexpected ctx", ctx)
@@ -411,7 +367,7 @@ func TestBatchConsumer_Get_putError(t *testing.T) {
 				if _, ok := values[0].(batchEnd); !ok {
 					t.Fatal("unexpected values", values)
 				}
-				return errors.New("some_error")
+				return expected
 			},
 		},
 	}
@@ -419,7 +375,7 @@ func TestBatchConsumer_Get_putError(t *testing.T) {
 	if v != nil {
 		t.Error("unexpected v", v)
 	}
-	if err == nil || err.Error() != "state.batchConsumer.Get end put error: some_error" {
+	if err != expected {
 		t.Error("unexpected err", err)
 	}
 }
@@ -452,7 +408,7 @@ func TestBatchConsumer_Get_twice(t *testing.T) {
 				return nil
 			},
 		},
-		producer: mockProducer{
+		Producer: mockProducer{
 			put: func(ctx context.Context, values ...interface{}) error {
 				put <- struct{}{}
 				return nil
@@ -466,7 +422,7 @@ func TestBatchConsumer_Get_twice(t *testing.T) {
 		t.Error("unexpected v", v)
 	}
 
-	if err == nil || err.Error() != "state.batchConsumer.Get batch stopped" {
+	if err != errBatchStopped {
 		t.Error("unexpected err", err)
 	}
 
@@ -479,7 +435,7 @@ func TestBatch_counter(t *testing.T) {
 
 	buffer := new(bigbuff.Buffer)
 
-	buffer.SetCleanerConfig(bigbuff.CleanerConfig{
+	_ = buffer.SetCleanerConfig(bigbuff.CleanerConfig{
 		Cleaner: func(size int, offsets []int) int {
 			return 0
 		},
@@ -704,7 +660,7 @@ func TestBatch_counter(t *testing.T) {
 						return
 					},
 				),
-				OptionReplay(true),
+				OptionReplay(func() bool { return true }),
 			)...
 		)
 

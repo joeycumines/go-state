@@ -98,7 +98,7 @@ func TestRun_nilInit(t *testing.T) {
 		mockConsumer{},
 	)
 
-	if err == nil || err.Error() != "state.Run config error: nil init" {
+	if err == nil || err.Error() != "state.RunValidator nil init" {
 		t.Fatal("unexpected error", err)
 	}
 }
@@ -117,7 +117,7 @@ func TestRun_nilUpdate(t *testing.T) {
 		mockConsumer{},
 	)
 
-	if err == nil || err.Error() != "state.Run config error: nil update" {
+	if err == nil || err.Error() != "state.RunValidator nil update" {
 		t.Fatal("unexpected error", err)
 	}
 }
@@ -136,7 +136,7 @@ func TestRun_nilView(t *testing.T) {
 		mockConsumer{},
 	)
 
-	if err == nil || err.Error() != "state.Run config error: nil view" {
+	if err == nil || err.Error() != "state.RunValidator nil view" {
 		t.Fatal("unexpected error", err)
 	}
 }
@@ -157,7 +157,7 @@ func TestRun_nilProducer(t *testing.T) {
 		mockConsumer{},
 	)
 
-	if err == nil || err.Error() != "state.Run config error: nil producer" {
+	if err == nil || err.Error() != "state.RunValidator nil producer" {
 		t.Fatal("unexpected error", err)
 	}
 }
@@ -178,7 +178,7 @@ func TestRun_nilConsumer(t *testing.T) {
 		nil,
 	)
 
-	if err == nil || err.Error() != "state.Run config error: nil consumer" {
+	if err == nil || err.Error() != "state.RunValidator nil consumer" {
 		t.Fatal("unexpected error", err)
 	}
 }
@@ -186,7 +186,6 @@ func TestRun_nilConsumer(t *testing.T) {
 func TestRun_contextError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-
 	err := Run(
 		ctx,
 		func() (model interface{}, command []func() (message interface{})) {
@@ -201,8 +200,7 @@ func TestRun_contextError(t *testing.T) {
 		mockProducer{},
 		mockConsumer{},
 	)
-
-	if err == nil || err.Error() != "state.Run context error: context canceled" {
+	if err != context.Canceled {
 		t.Fatal("unexpected error", err)
 	}
 }
@@ -264,6 +262,8 @@ func TestRun_commitErrorDataFlow(t *testing.T) {
 		commit <- struct{}{}
 		rollback <- struct{}{}
 	}()
+
+	expected := errors.New("some_error")
 
 	err := Run(
 		context.Background(),
@@ -328,7 +328,7 @@ func TestRun_commitErrorDataFlow(t *testing.T) {
 			},
 			commit: func() error {
 				<-commit
-				return errors.New("some_error")
+				return expected
 			},
 			rollback: func() error {
 				<-rollback
@@ -337,7 +337,7 @@ func TestRun_commitErrorDataFlow(t *testing.T) {
 		},
 	)
 
-	if err == nil || err.Error() != "state.Run commit error: some_error" {
+	if err != expected {
 		t.Fatal("unexpected error", err)
 	}
 
@@ -346,6 +346,8 @@ func TestRun_commitErrorDataFlow(t *testing.T) {
 
 func TestRun_getError(t *testing.T) {
 	out := make(chan int, 50)
+
+	expected := errors.New("some_error")
 
 	err := Run(
 		context.Background(),
@@ -364,7 +366,7 @@ func TestRun_getError(t *testing.T) {
 		},
 		mockConsumer{
 			get: func(ctx context.Context) (interface{}, error) {
-				return nil, errors.New("some_error")
+				return nil, expected
 			},
 			rollback: func() error {
 				out <- 1
@@ -373,7 +375,7 @@ func TestRun_getError(t *testing.T) {
 		},
 	)
 
-	if err == nil || err.Error() != "state.Run consumer error: some_error" {
+	if err != expected {
 		t.Fatal("unexpected error", err)
 	}
 
@@ -388,6 +390,7 @@ func TestRun_getError(t *testing.T) {
 }
 
 func TestRun_putError(t *testing.T) {
+	expected := errors.New("some_error")
 	err := Run(
 		context.Background(),
 		func() (model interface{}, command []func() (message interface{})) {
@@ -400,13 +403,13 @@ func TestRun_putError(t *testing.T) {
 		},
 		mockProducer{
 			put: func(ctx context.Context, values ...interface{}) error {
-				return errors.New("some_error")
+				return expected
 			},
 		},
 		mockConsumer{},
 	)
 
-	if err == nil || err.Error() != "state.Run producer error: some_error" {
+	if err != expected {
 		t.Fatal("unexpected error", err)
 	}
 }
